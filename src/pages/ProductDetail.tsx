@@ -1,5 +1,4 @@
-/* productDetail.tsx*/
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Star, ShoppingCart, Heart, Minus, Plus, ZoomIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -7,17 +6,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ProductCarousel from "@/components/ProductCarousel";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import product1 from "@/assets/product-1.jpg";
-import product2 from "@/assets/product-2.jpg";
-import product3 from "@/assets/product-3.jpg";
-import product4 from "@/assets/product-4.jpg";
-
-const relatedProducts = [
-  { id: 5, name: "Minimalist Watch", price: 259.99, image: product1, rating: 5, reviews: 73 },
-  { id: 6, name: "Classic Handbag", price: 219.99, image: product2, rating: 5, reviews: 91 },
-  { id: 7, name: "Sport Sunglasses", price: 179.99, image: product3, rating: 5, reviews: 65 },
-  { id: 8, name: "Casual Sneakers", price: 159.99, image: product4, rating: 5, reviews: 88 },
-];
+import { featuredProducts, products } from "@/data/products";
+import { useCart } from "@/context/CartContext";
+import { useWishlist } from "@/context/WishlistContext";
+import { useRecentlyViewed } from "@/context/RecentlyViewedContext";
+import { useToast } from "@/hooks/use-toast";
+import NotFound from "./NotFound";
 
 const reviews = [
   {
@@ -32,14 +26,14 @@ const reviews = [
     author: "Jane Smith",
     rating: 5,
     date: "1 month ago",
-    content: "Love this product! Exactly as described and worth every penny.",
+    content: "Exactly as described and worth every penny.",
   },
   {
     id: 3,
     author: "Mike Johnson",
     rating: 4,
     date: "1 month ago",
-    content: "Great product, though shipping took a bit longer than expected.",
+    content: "Great product, though shipping took slightly longer than expected.",
   },
 ];
 
@@ -48,25 +42,25 @@ const ProductDetail = () => {
   const [quantity, setQuantity] = useState(1);
   const [selectedImage, setSelectedImage] = useState(0);
   const [isZoomed, setIsZoomed] = useState(false);
+  const { addToCart } = useCart();
+  const { isWishlisted, toggleWishlist } = useWishlist();
+  const { addRecentlyViewed } = useRecentlyViewed();
+  const { toast } = useToast();
 
-  const productImages = [product1, product1, product1, product1];
+  const product = useMemo(() => products.find((item) => item.id === Number(id)), [id]);
 
-  const product = {
-    id: Number(id),
-    name: "Premium Watch Collection",
-    price: 299.99,
-    rating: 5,
-    reviews: 128,
-    description:
-      "Elevate your style with our Premium Watch Collection. Crafted with precision and attention to detail, this timepiece combines classic elegance with modern functionality. Featuring a stainless steel case, scratch-resistant sapphire crystal, and a precision quartz movement, this watch is built to last.",
-    features: [
-      "Stainless steel case and band",
-      "Scratch-resistant sapphire crystal",
-      "Water-resistant up to 100m",
-      "Precision quartz movement",
-      "2-year warranty",
-    ],
-  };
+  useEffect(() => {
+    if (product) {
+      addRecentlyViewed(product.id);
+    }
+  }, [addRecentlyViewed, product]);
+
+  if (!product) {
+    return <NotFound />;
+  }
+
+  const productImages = [product.image, product.image, product.image, product.image];
+  const relatedProducts = featuredProducts.filter((item) => item.id !== product.id).slice(0, 4);
 
   return (
     <div className="min-h-screen">
@@ -74,20 +68,17 @@ const ProductDetail = () => {
 
       <div className="container mx-auto px-4 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 mb-20">
-          {/* Image Gallery */}
           <div>
             <div
-              className="relative aspect-square mb-4 bg-muted rounded-lg overflow-hidden cursor-zoom-in group"
+              className="relative aspect-square mb-4 bg-muted rounded-2xl overflow-hidden cursor-zoom-in group border border-border/70"
               onClick={() => setIsZoomed(!isZoomed)}
             >
               <img
                 src={productImages[selectedImage]}
                 alt={product.name}
-                className={`w-full h-full object-cover transition-transform duration-500 ${
-                  isZoomed ? "scale-150" : "scale-100"
-                }`}
+                className={`w-full h-full object-cover transition-transform duration-500 ${isZoomed ? "scale-150" : "scale-100"}`}
               />
-              <div className="absolute top-4 right-4 bg-black/50 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="absolute top-4 right-4 bg-black/55 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
                 <ZoomIn className="h-5 w-5" />
               </div>
             </div>
@@ -98,64 +89,77 @@ const ProductDetail = () => {
                   key={index}
                   onClick={() => setSelectedImage(index)}
                   className={`aspect-square rounded-lg overflow-hidden border-2 transition-all ${
-                    selectedImage === index
-                      ? "border-accent"
-                      : "border-transparent hover:border-muted-foreground/20"
+                    selectedImage === index ? "border-accent" : "border-transparent hover:border-muted-foreground/20"
                   }`}
                 >
-                  <img src={image} alt={`Product ${index + 1}`} className="w-full h-full object-cover" />
+                  <img src={image} alt={`${product.name} preview ${index + 1}`} className="w-full h-full object-cover" />
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Product Info */}
           <div>
-            <h1 className="text-4xl font-bold mb-4">{product.name}</h1>
+            <p className="text-sm uppercase tracking-wide text-muted-foreground mb-2">{product.category}</p>
+            <h1 className="text-4xl font-semibold mb-4">{product.name}</h1>
 
             <div className="flex items-center gap-4 mb-6">
               <div className="flex items-center gap-1">
-                {[...Array(5)].map((_, i) => (
-                  <Star
-                    key={i}
-                    className={`h-5 w-5 ${
-                      i < product.rating ? "fill-accent text-accent" : "text-muted-foreground"
-                    }`}
-                  />
+                {[...Array(5)].map((_, index) => (
+                  <Star key={index} className={`h-5 w-5 ${index < product.rating ? "fill-accent text-accent" : "text-muted-foreground"}`} />
                 ))}
               </div>
               <span className="text-muted-foreground">({product.reviews} reviews)</span>
             </div>
 
-            <div className="text-4xl font-bold mb-8">${product.price}</div>
-
+            <div className="text-4xl font-bold mb-8">${product.price.toFixed(2)}</div>
             <p className="text-muted-foreground mb-8 leading-relaxed">{product.description}</p>
 
             <div className="space-y-6 mb-8">
               <div className="flex items-center gap-4">
                 <span className="font-semibold">Quantity:</span>
                 <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                  >
+                  <Button variant="outline" size="icon" onClick={() => setQuantity((value) => Math.max(1, value - 1))}>
                     <Minus className="h-4 w-4" />
                   </Button>
                   <span className="w-12 text-center font-semibold">{quantity}</span>
-                  <Button variant="outline" size="icon" onClick={() => setQuantity(quantity + 1)}>
+                  <Button variant="outline" size="icon" onClick={() => setQuantity((value) => value + 1)}>
                     <Plus className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
 
               <div className="flex gap-4">
-                <Button size="lg" className="flex-1">
+                <Button
+                  size="lg"
+                  className="flex-1"
+                  onClick={() => {
+                    for (let index = 0; index < quantity; index += 1) {
+                      addToCart({ id: product.id, name: product.name, price: product.price, image: product.image });
+                    }
+                    toast({ title: "Added to cart", description: `${quantity} x ${product.name} added to cart.` });
+                  }}
+                >
                   <ShoppingCart className="h-5 w-5 mr-2" />
                   Add to Cart
                 </Button>
-                <Button size="lg" variant="outline">
-                  <Heart className="h-5 w-5" />
+
+                <Button
+                  size="lg"
+                  variant="outline"
+                  onClick={async () => {
+                    const wasWishlisted = isWishlisted(product.id);
+                    const result = await toggleWishlist(product.id);
+                    if (!result.ok) {
+                      toast({ title: "Wishlist error", description: result.error ?? "Could not update wishlist." });
+                      return;
+                    }
+                    toast({
+                      title: wasWishlisted ? "Removed from wishlist" : "Added to wishlist",
+                      description: product.name,
+                    });
+                  }}
+                >
+                  <Heart className={`h-5 w-5 ${isWishlisted(product.id) ? "fill-current" : ""}`} />
                 </Button>
               </div>
             </div>
@@ -163,8 +167,8 @@ const ProductDetail = () => {
             <div className="border-t pt-6">
               <h3 className="font-semibold mb-4">Key Features</h3>
               <ul className="space-y-2">
-                {product.features.map((feature, index) => (
-                  <li key={index} className="flex items-center gap-2 text-muted-foreground">
+                {product.features.map((feature) => (
+                  <li key={feature} className="flex items-center gap-2 text-muted-foreground">
                     <div className="h-1.5 w-1.5 rounded-full bg-accent" />
                     {feature}
                   </li>
@@ -174,7 +178,6 @@ const ProductDetail = () => {
           </div>
         </div>
 
-        {/* Tabs Section */}
         <div className="mb-20">
           <Tabs defaultValue="description" className="w-full">
             <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent">
@@ -199,16 +202,7 @@ const ProductDetail = () => {
             </TabsList>
 
             <TabsContent value="description" className="py-8">
-              <div className="prose max-w-none">
-                <p className="text-muted-foreground leading-relaxed">
-                  {product.description}
-                </p>
-                <p className="text-muted-foreground leading-relaxed mt-4">
-                  Each piece in our Premium Watch Collection represents the perfect marriage of form and
-                  function. Our master craftsmen have spent countless hours perfecting every detail, from
-                  the smooth sweep of the second hand to the satisfying click of the clasp.
-                </p>
-              </div>
+              <p className="text-muted-foreground leading-relaxed">{product.description}</p>
             </TabsContent>
 
             <TabsContent value="reviews" className="py-8">
@@ -221,13 +215,8 @@ const ProductDetail = () => {
                         <p className="text-sm text-muted-foreground">{review.date}</p>
                       </div>
                       <div className="flex gap-1">
-                        {[...Array(5)].map((_, i) => (
-                          <Star
-                            key={i}
-                            className={`h-4 w-4 ${
-                              i < review.rating ? "fill-accent text-accent" : "text-muted-foreground"
-                            }`}
-                          />
+                        {[...Array(5)].map((_, index) => (
+                          <Star key={index} className={`h-4 w-4 ${index < review.rating ? "fill-accent text-accent" : "text-muted-foreground"}`} />
                         ))}
                       </div>
                     </div>
@@ -260,7 +249,6 @@ const ProductDetail = () => {
           </Tabs>
         </div>
 
-        {/* Related Products */}
         <section>
           <ProductCarousel products={relatedProducts} title="Related Products" />
         </section>
